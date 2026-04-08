@@ -1,0 +1,16 @@
+{
+  "name": "collab-server",
+  "version": "1.0.0",
+  "description": "Simple Yjs collaboration server.",
+  "main": "index.js",
+  "scripts": {
+    "start": "y-websocket-server"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "y-websocket": "^1.5.0",
+    "yjs": "^13.6.14"
+  }
+}

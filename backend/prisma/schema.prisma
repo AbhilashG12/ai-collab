@@ -1,0 +1,28 @@
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Message {
+  id         Int          @id @default(autoincrement())
+  content    String
+  createdAt  DateTime     @default(now())
+  // Add a relation: One Message can have one Suggestion
+  suggestion Suggestion?
+}
+
+// NEW MODEL
+model Suggestion {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+  // Add a relation back to the Message
+  message   Message  @relation(fields: [messageId], references: [id])
+  messageId Int      @unique // A suggestion belongs to exactly one message
+}
