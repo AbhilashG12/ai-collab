@@ -14,21 +14,16 @@ interface CodeNode {
   parent?: string; 
 }
 
-
 async function cloneRepo(repoUrl: string, localPath: string): Promise<void> {
   console.log(`Cloning ${repoUrl} to ${localPath}...`);
   await fs.ensureDir(localPath);
   await git.clone(repoUrl, localPath, { '--depth': 1 });
-  console.log('Cloning complete.');
 }
-
 
 function getFileDependencies(filePath: string, projectRoot: string): string[] {
   const dependencies = new Set<string>();
-
-  if (!/\.(js|ts|jsx|tsx)$/.test(filePath)) {
-    return [];
-  }
+  if (!/\.(js|ts|jsx|tsx)$/.test(filePath)) return [];
+  
   const code = fs.readFileSync(filePath, 'utf-8');
   try {
     const ast = parse(code, { sourceType: 'module', plugins: ['typescript', 'jsx'], errorRecovery: true });
@@ -40,22 +35,17 @@ function getFileDependencies(filePath: string, projectRoot: string): string[] {
         dependencies.add(relativePath);
       },
     });
-  } catch (error) { console.warn(`Could not parse ${filePath}. Skipping.`); }
+  } catch (error) { }
   return Array.from(dependencies);
 }
 
-// Function to get a specific file's content from a cloned repo
 export function getFileContent(analysisId: string, filePath: string): string {
   const fullPath = path.resolve(`./temp-clones/${analysisId}/${filePath}`);
-  if (!fs.existsSync(fullPath)) {
-    throw new Error("File not found in the specified analysis.");
-  }
+  if (!fs.existsSync(fullPath)) throw new Error("File not found.");
   return fs.readFileSync(fullPath, 'utf-8');
 }
 
-// Main function to analyze the entire project directory
-export async function analyzeRepository(repoUrl: string) {
-  const analysisId = Date.now().toString();
+export async function analyzeRepository(repoUrl: string, analysisId: string) {
   const localPath = path.resolve(`./temp-clones/${analysisId}`);
   
   try {
@@ -69,12 +59,15 @@ export async function analyzeRepository(repoUrl: string) {
       const relativePath = path.relative(localPath, file).replace(/\\/g, '/');
       const lines = fs.readFileSync(file, 'utf-8').split('\n').length;
       const parentDir = path.dirname(relativePath);
+      
       nodes.push({ id: relativePath, name: path.basename(relativePath), type: 'file', size: lines, parent: parentDir === '.' ? undefined : parentDir });
+      
       let currentDir = parentDir;
       while (currentDir && currentDir !== '.') {
         directoryMap.set(currentDir, (directoryMap.get(currentDir) || 0) + lines);
         currentDir = path.dirname(currentDir);
       }
+
       const dependencies = getFileDependencies(file, localPath);
       for (const dep of dependencies) {
           const potentialDepPaths = [`${dep}.js`, `${dep}.ts`, `${dep}.tsx`, `${dep}/index.js`, `${dep}/index.ts`, `${dep}/index.tsx`];
@@ -96,23 +89,18 @@ export async function analyzeRepository(repoUrl: string) {
     return { nodes, edges, analysisId };
   } catch (error: any) {
     if (fs.existsSync(localPath)) { await fs.remove(localPath); }
-    throw new Error(`Failed to clone or analyze repository. Original error: ${error.message}`);
+    throw new Error(`Analysis failed: ${error.message}`);
   }
 }
 
-// Helper function to recursively get all relevant files from a directory
 async function getAllFiles(dirPath: string, arrayOfFiles: string[] = []): Promise<string[]> {
   const files = fs.readdirSync(dirPath);
   for (const file of files) {
     const fullPath = path.join(dirPath, file);
-    // Continue to ignore common large/irrelevant directories
     if (['node_modules', '.git', 'dist', 'build', '.next', '.vscode'].includes(file)) continue;
-    
     if (fs.statSync(fullPath).isDirectory()) {
       await getAllFiles(fullPath, arrayOfFiles);
     } else {
-      // THE FIX IS HERE: The filter that checked for specific file extensions has been removed.
-      // Now, we add every file we find.
       arrayOfFiles.push(fullPath);
     }
   }

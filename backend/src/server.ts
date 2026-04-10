@@ -12,6 +12,11 @@ import { typeDefs } from "./schema";
 import { resolvers } from "./resolvers";
 import { setupTerminal } from "./terminalService";
 
+process.on('uncaughtException', (err: any) => {
+  if (err.code === 'EPIPE') return;
+  console.error('Uncaught Exception:', err);
+});
+
 const PORT = 4000;
 const prisma = new PrismaClient();
 
@@ -22,12 +27,12 @@ async function cleanupTempClones() {
     await fs.emptyDir(tempDir);
     console.log('[Cleanup] Temporary clones directory is clean.');
   } catch (error) {
-    console.error('[Cleanup] Failed to clean temporary clones directory:', error);
+    console.error('[Cleanup] Failed to clean temporary clones:', error);
   }
 }
 
 async function startServer() {
-  await cleanupTempClones();
+  // await cleanupTempClones();
   const app = express();
   app.use(cors());
   const httpServer = http.createServer(app);
@@ -35,15 +40,15 @@ async function startServer() {
   const notificationWss = new WebSocketServer({ noServer: true });
   const terminalWss = new WebSocketServer({ noServer: true });
 
-  notificationWss.on("connection", (ws) => {
-    console.log("✅ WebSocket connected for /websocket notifications");
+  notificationWss.on("connection", () => {
+    console.log("✅ WebSocket connected: /websocket");
   });
 
   terminalWss.on("connection", (ws, req) => {
     const analysisId = req.url?.split("/").pop();
     if (analysisId) {
       setupTerminal(ws, analysisId);
-      console.log(`✅ Terminal WebSocket connected for analysisId: ${analysisId}`);
+      console.log(`✅ Terminal connected: ${analysisId}`);
     } else {
       ws.close();
     }
@@ -74,10 +79,9 @@ async function startServer() {
   await server.start();
   server.applyMiddleware({ app: app as Application });
 
-
   httpServer.listen(PORT, () => {
-    console.log(`🚀 GraphQL Server ready at http://localhost:${PORT}${server.graphqlPath}`);
-    console.log(`🚀 Terminal WebSocket ready at ws://localhost:${PORT}/terminal/:analysisId`);
+    console.log(`🚀 GraphQL ready at http://localhost:${PORT}${server.graphqlPath}`);
+    console.log(`🚀 Terminal ready at ws://localhost:${PORT}/terminal/:analysisId`);
   });
 }
 

@@ -1,4 +1,3 @@
-
 import { exec } from 'child_process';
 import path from 'path';
 import util from 'util';
@@ -11,12 +10,20 @@ import { WebSocketServer } from 'ws';
 const execPromise = util.promisify(exec);
 
 interface GraphQLContext {
-  prisma: PrismaClient;
+  prisma: PrismaClient;  
   wss: WebSocketServer;
 }
 
+const getRepoName = (url: string) => {
+  const name = url.replace(/\/$/, '').replace(/\.git$/, '').split('/').pop();
+  return name || 'unknown-repo';
+};
+
 export const resolvers = {
   Query: {
+    workspaces: async (_: any, __: any, { prisma }: GraphQLContext) => {
+      return await prisma.workspace.findMany({ orderBy: { updatedAt: 'desc' } });
+    },
     getAiAnalysisForFile: async (
       _: any,
       { analysisId, filePath }: { analysisId: string, filePath: string }
@@ -26,31 +33,51 @@ export const resolvers = {
       let suggestion;
       if (content.length > MAX_CHARS) {
         const truncatedContent = content.substring(0, MAX_CHARS);
-        const truncatedSuggestion = await getAISuggestion(truncatedContent);
-        suggestion = `---
-File is too large for full analysis (${content.length} characters). Analyzing the first ${MAX_CHARS} characters.
----\n\n${truncatedSuggestion}`;
+        const suggestionRaw = await getAISuggestion(truncatedContent);
+        suggestion = `--- Truncated ---\n${suggestionRaw}`;
       } else {
         suggestion = await getAISuggestion(content);
       }
-      
       return { content, suggestion };
     }
   },
   Mutation: {
     saveFile: async (_: any, { analysisId, filePath, content }: { analysisId: string, filePath: string, content: string }) => {
       const fullPath = path.resolve(`./temp-clones/${analysisId}/${filePath}`);
-      console.log(`[File Save] Saving content to ${fullPath}`);
       try {
         await fs.writeFile(fullPath, content);
         return true;
       } catch (error) {
-        console.error(`[File Save] Error: ${error}`);
         return false;
       }
     },
-    analyzeRepository: async (_: any, { url }: { url: string }) => {
-      return await analyzeRepository(url);
+    analyzeRepository: async (_: any, { url }: { url: string }, { prisma }: GraphQLContext) => {
+      const repoName = getRepoName(url);
+      const analysisId = `${repoName}-${Date.now()}`;
+      
+      const result = await analyzeRepository(url, analysisId);
+
+      await prisma.workspace.create({
+        data: {
+          name: repoName,
+          repoUrl: url,
+          analysisId: analysisId,
+        }
+      });
+
+      return result;
+    },
+    deleteWorkspace: async (_: any, { analysisId }: { analysisId: string }, { prisma }: GraphQLContext) => {
+      const targetPath = path.resolve(`./temp-clones/${analysisId}`);
+      try {
+        if (await fs.pathExists(targetPath)) {
+          await fs.remove(targetPath);
+        }
+        await prisma.workspace.delete({ where: { analysisId } });
+        return true;
+      } catch (error) {
+        return false;
+      }
     },
     getSuggestionForSnippet: async (_: any, { code }: { code: string }) => {
       return await getAISuggestion(code);
@@ -59,8 +86,7 @@ File is too large for full analysis (${content.length} characters). Analyzing th
       const cwd = path.resolve(`./temp-clones/${analysisId}`);
       try {
         const { stdout, stderr } = await execPromise(command, { cwd, shell: 'powershell.exe' });
-        if (stderr) return stderr;
-        return stdout;
+        return stderr || stdout;
       } catch (error: any) {
         return error.message;
       }

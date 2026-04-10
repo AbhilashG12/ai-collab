@@ -13,16 +13,23 @@ model Message {
   id         Int          @id @default(autoincrement())
   content    String
   createdAt  DateTime     @default(now())
-  // Add a relation: One Message can have one Suggestion
   suggestion Suggestion?
 }
 
-// NEW MODEL
+
 model Suggestion {
   id        Int      @id @default(autoincrement())
   content   String
   createdAt DateTime @default(now())
-  // Add a relation back to the Message
   message   Message  @relation(fields: [messageId], references: [id])
-  messageId Int      @unique // A suggestion belongs to exactly one message
+  messageId Int      @unique 
+}
+
+model Workspace {
+  id         String   @id @default(cuid())
+  name       String
+  repoUrl    String
+  analysisId String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

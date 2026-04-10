@@ -1,4 +1,3 @@
-
 import { gql } from 'apollo-server-express';
 
 export const typeDefs = gql`
@@ -26,8 +25,16 @@ export const typeDefs = gql`
     suggestion: String!
   }
 
+  type Workspace {
+    id: String!
+    name: String!
+    repoUrl: String!
+    analysisId: String!
+  }
+
   type Query {
     getAiAnalysisForFile(analysisId: String!, filePath: String!): FileAnalysis!
+    workspaces: [Workspace!]!
   }
   
   type Mutation {
@@ -35,5 +42,6 @@ export const typeDefs = gql`
     getSuggestionForSnippet(code: String!): String!
     executeCommand(analysisId: String!, command: String!): String!
     saveFile(analysisId: String!, filePath: String!, content: String!): Boolean
+    deleteWorkspace(analysisId: String!): Boolean
   }
 `;
