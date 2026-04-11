@@ -1,26 +1,10 @@
 services:
-  backend:
-    build: ./backend
-    ports:
-      - "4000:4000"
-    volumes:
-      - ./backend:/usr/src/app
-      - /usr/src/app/node_modules
-    depends_on:
-      - db
-    env_file:
-      - ./backend/.env
-
-  collab:
-    build: ./collab-server
-    ports:
-      - "1234:1234"
-
   db:
     image: postgres:15
     restart: always
     environment:
       - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_DB=ai_collab_db
     ports:
       - "5432:5432"
     volumes:

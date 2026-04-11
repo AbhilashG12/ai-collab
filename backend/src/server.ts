@@ -1,6 +1,6 @@
 import "dotenv/config";
 import http from "http";
-import express, { Application } from "express";
+import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { WebSocketServer } from "ws";
 import { PrismaClient } from "@prisma/client";
@@ -77,7 +77,7 @@ async function startServer() {
   });
 
   await server.start();
-  server.applyMiddleware({ app: app as Application });
+  server.applyMiddleware({ app: app as any });
 
   httpServer.listen(PORT, () => {
     console.log(`🚀 GraphQL ready at http://localhost:${PORT}${server.graphqlPath}`);
