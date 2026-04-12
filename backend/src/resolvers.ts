@@ -22,7 +22,7 @@ const getRepoName = (url: string) => {
 export const resolvers = {
   Query: {
     workspaces: async (_: any, __: any, { prisma }: GraphQLContext) => {
-      return await prisma.workspace.findMany({ orderBy: { updatedAt: 'desc' } });
+      return await prisma.workspace.findMany({ orderBy: { createdAt: 'desc' } });
     },
     getAiAnalysisForFile: async (
       _: any,
@@ -51,22 +51,21 @@ export const resolvers = {
         return false;
       }
     },
-    analyzeRepository: async (_: any, { url }: { url: string }, { prisma }: GraphQLContext) => {
-      const repoName = getRepoName(url);
-      const analysisId = `${repoName}-${Date.now()}`;
-      
-      const result = await analyzeRepository(url, analysisId);
+    analyzeRepository: async (_: any, { url }: { url: string }, { prisma }: any) => {
+  const analysisId = `${url.split('/').pop()}-${Date.now()}`;
+  const result = await analyzeRepository(url, analysisId);
+  const workspace = await prisma.workspace.create({
+    data: {
+      name: url.split('/').pop() || "New Project",
+      repoUrl: url,
+      analysisId: analysisId,
+      nodes: result.nodes, 
+      edges: result.edges,
+    }
+  });
 
-      await prisma.workspace.create({
-        data: {
-          name: repoName,
-          repoUrl: url,
-          analysisId: analysisId,
-        }
-      });
-
-      return result;
-    },
+  return result;
+},
     deleteWorkspace: async (_: any, { analysisId }: { analysisId: string }, { prisma }: GraphQLContext) => {
       const targetPath = path.resolve(`./temp-clones/${analysisId}`);
       try {
